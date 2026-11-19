@@ -77,9 +77,14 @@ function readHref(attributes: string): string {
  * ```
  */
 export function sanitizeRichText(html: string): string {
-  const source = html
-    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  let source = html
+  let previous: string
+  do {
+    previous = source
+    source = source
+      .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+  } while (source !== previous)
   const stack: string[] = []
   let out = ''
 
