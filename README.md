@@ -68,6 +68,16 @@ import { sendDevEmail } from 'newsletter-builder-react/node'
 
 See [`llms.txt`](./llms.txt) for a compact Markdown reference of the full API.
 
+## Publishing
+
+Update the version in `package.json` and `package-lock.json`, then create and
+publish a GitHub Release with a matching `vX.Y.Z` tag. The GitHub Actions
+workflow checks the tag against `package.json`, runs the type check and build,
+and publishes the package to npm. Prereleases are not published.
+
+Add an npm publishing token as the repository's `NPM_TOKEN` Actions secret
+before publishing a release.
+
 ## Publishing this folder
 
 This directory is self-contained. Copy it into its own repository, move the sources into `src/` (the `exports` map in `package.json` assumes `dist/`), add a `tsconfig.json` with `"strict": true`, and run `npm run build`.
