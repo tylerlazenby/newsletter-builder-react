@@ -63,7 +63,7 @@
     "@types/react-dom": "^19.0.0",
     "tsup": "^9.0.0",
     "typedoc": "^0.28.0",
-    "typescript": "^5.7.0"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=18"
