@@ -1,0 +1,209 @@
+# newsletter-builder-react
+
+> A free, open-source (MIT), provider-agnostic visual email newsletter builder for React. Drag-and-drop editor, email-safe table-based HTML compiler with inlined CSS, plain-text generator, merge tags, light/dark mode. It outputs `{ html, text, subject }` and never sends email itself, so there is no vendor lock-in.
+
+## Install
+
+```bash
+npm install newsletter-builder-react
+```
+
+Peer dependencies: `react` and `react-dom` 18 or 19. Import the editor styles once:
+
+```tsx
+import 'newsletter-builder-react/styles.css'
+```
+
+The editor components are client components (`'use client'`). In Next.js App Router, render them from a client component or a file that starts with `'use client'`. The compiler functions are pure and run anywhere (server, edge, browser, Node scripts).
+
+## Quick start
+
+```tsx
+'use client'
+import { NewsletterBuilder, createWelcomeTemplate } from 'newsletter-builder-react'
+import 'newsletter-builder-react/styles.css'
+
+export default function Editor() {
+  return (
+    <div style={{ height: '100vh' }}>
+      <NewsletterBuilder
+        initialDocument={createWelcomeTemplate()}
+        variables={{ unsubscribeUrl: 'https://example.com/u/123' }}
+        onChange={(doc) => console.log(doc)}
+      />
+    </div>
+  )
+}
+```
+
+Compile on the server and hand the payload to any provider:
+
+```ts
+import { compileNewsletter } from 'newsletter-builder-react'
+
+const { html, text, subject } = compileNewsletter(doc, {
+  variables: { firstName: 'Ada', unsubscribeUrl: 'https://example.com/u/123' },
+})
+// Pass { html, text, subject } to SMTP2GO, Bird, Mailchimp, HubSpot, ActiveCampaign, Nodemailer...
+```
+
+## Entry points
+
+- `newsletter-builder-react` - components, hooks, compiler, types (safe for browser and server).
+- `newsletter-builder-react/styles.css` - editor chrome styles.
+- `newsletter-builder-react/node` - server only. Exports the development-only `sendDevEmail()`.
+
+## Components
+
+### `<NewsletterBuilder />`
+
+Complete editor: block palette, canvas, inspector, preview, HTML and plain-text views, undo/redo, quick-start walkthrough. It fills its parent, so give the parent a height.
+
+Props:
+
+- `initialDocument?: NewsletterDocument` - starting document. Read once on mount. Use `key` to remount.
+- `onChange?: (document: NewsletterDocument) => void` - called after each committed edit.
+- `variables?: Record<string, string>` - runtime customer values, applied to the canvas, preview and exported HTML. Not editable in the UI. Change at any time to swap customer data.
+- `previewData?: Record<string, string>` - sample values for previews only (not exported). Defaults to `DEFAULT_PREVIEW_DATA`. Define outside the component or memoise.
+- `onPreviewDataChange?: (data) => void` - called when sample values are edited in the Variables tab.
+- `mergeTags?: MergeTagDefinition[]` - tags offered in menus. Defaults to `DEFAULT_MERGE_TAGS`.
+- `onImageUpload?: (file: File) => Promise<string>` - return a public https URL for an uploaded image. Without it uploads become data URLs (preview only).
+- `onExport?: (email: CompiledEmail, action: 'copy-html' | 'copy-text' | 'download-html') => void`
+- `showWalkthrough?: boolean` (default true), `onWalkthroughDismiss?: () => void`
+- `defaultView?: 'edit' | 'preview' | 'html' | 'text'`, `defaultColorMode?: 'light' | 'dark'`
+- `uiTheme?: 'light' | 'dark'` - colour theme of the editor chrome.
+- `height?: number | string` (default `'100%'`), `className?: string`
+
+### `<NewsletterRenderer />`
+
+Renders a document exactly as exported, inside a sandboxed iframe (`sandbox="allow-same-origin allow-popups"`, no scripts).
+
+Props:
+
+- `document: NewsletterDocument` (required)
+- `variables?: Record<string, string>` - always applied, wins over `previewData`
+- `previewData?: Record<string, string>` - sample values for this preview
+- `colorMode?: 'light' | 'dark' | 'auto'` (default `'light'`)
+- `device?: 'desktop' | 'mobile'` (default `'desktop'`; mobile is 375px wide)
+- `autoHeight?: boolean` - size the frame to its content
+- `title?: string`, `className?: string`, `style?: CSSProperties`
+
+```tsx
+<NewsletterRenderer
+  document={doc}
+  previewData={{ firstName: 'Ada' }}
+  colorMode="dark"
+  device="mobile"
+  autoHeight
+/>
+```
+
+### `useNewsletterEditor(initial, onChange?)`
+
+Headless editor state (reducer with undo/redo) for building a custom UI. Returns `NewsletterEditorApi` with the current `document`, `selectedId`, `selectedBlock`, `canUndo`, `canRedo`, and actions `addBlock(block, location)`, `appendBlock(block)`, `moveBlock(id, location)`, `updateBlock(id, patch)`, `removeBlock(id)`, `duplicateBlock(id)`, `nudgeBlock(id, -1 | 1)`, `updateMeta({ subject, preheader })`, `updateTheme(patch)`, `replaceDocument(doc)`, `select(id)`, `undo()`, `redo()`.
+
+## Document model
+
+`NewsletterDocument` is plain JSON (serialisable, safe to store in a database):
+
+```ts
+interface NewsletterDocument {
+  version: 1
+  subject: string      // merge tags allowed
+  preheader: string    // inbox preview text
+  theme: NewsletterTheme
+  blocks: NewsletterBlock[]
+}
+```
+
+Block types (discriminated by `type`): `header` (text, level 1-3, align, color?), `text` (sanitised inline `html`, align, fontSize), `image` (src, alt, widthPercent, align, href), `button` (label, href, align, fullWidth, borderRadius, backgroundColor?, textColor?), `divider` (thickness, style, widthPercent), `spacer` (height), `footer` (reason, companyName, address, unsubscribeLabel, unsubscribeUrl, showPreferences, preferencesLabel, preferencesUrl, align), and `columns` (2-4 cells, each with `widthPercent` and `blocks`; `gap`, `stackOnMobile`). `columns` can only live at the document root.
+
+`NewsletterTheme`: `fontStack`, `headingFontStack` (ids from `FONT_STACKS`), `contentWidth` (480-720), `baseFontSize`, `containerRadius`, and two `ThemeColors` palettes, `light` and `dark` (`pageBackground`, `contentBackground`, `text`, `mutedText`, `heading`, `link`, `buttonBackground`, `buttonText`, `divider`).
+
+Factories: `createBlankDocument()`, `createWelcomeTemplate()`, `createProductUpdateTemplate()`, `createBlock(type)`, `createColumns(2 | 3 | 4)`, `createTheme(overrides)`.
+
+## Compiler
+
+```ts
+compileNewsletter(document: NewsletterDocument, options?: CompileOptions): CompiledEmail
+```
+
+`CompileOptions`: `variables`, `previewData` (merged under `variables`), `colorMode` (`'auto'` default, `'light'`, `'dark'`), `lang` (default `en`), `dir` (`ltr` | `rtl`).
+
+`CompiledEmail`: `{ html: string; text: string; subject: string }`.
+
+Output guarantees: nested `<table role="presentation">` layout, inlined CSS, no Flexbox/Grid/external stylesheets, `<meta name="color-scheme" content="light dark">` and `<meta name="supported-color-schemes">`, a `@media (prefers-color-scheme: dark)` block (plus Outlook.com `[data-ogsc]`/`[data-ogsb]` selectors), a responsive `@media (max-width: <contentWidth + 20>px)` stacking rule, MSO conditional comments for Outlook, bulletproof buttons, hidden preheader, escaped merge-tag values, and sanitised URLs (only `http`, `https`, `mailto`, `tel`, and `data:image/*` for images).
+
+Other helpers: `renderPlainText(doc)`, `richTextToPlain(html)`, `lintNewsletter(doc, html?)` returns `LintIssue[]` (empty subject or preheader, missing alt text, missing images, relative or data-URL image sources, buttons without links, missing unsubscribe link or postal address, Gmail 102 KB clipping), `applyMergeTags`, `extractMergeTags`, `escapeHtml`, `sanitizeRichText`, `sanitizeUrl`, tree helpers `findBlock`, `insertBlock`, `removeBlock`, `updateBlock`, `moveBlock`, `cloneBlock`, `createId`.
+
+## Merge tags and variables
+
+Write `{{name}}` anywhere: subject, preheader, headings, text, button labels and URLs, footer fields. Names match `[A-Za-z_][A-Za-z0-9_.-]*` and whitespace inside the braces is allowed (`{{ firstName }}`).
+
+- At compile time, `variables` are substituted (HTML-escaped; URLs are sanitised after substitution).
+- Tags with no value are left as-is, so a downstream engine (Mailchimp `*|FNAME|*` mapping, HubSpot, Handlebars, Liquid) can still resolve them.
+- `previewData` is for previews only and is merged under `variables`.
+
+```ts
+compileNewsletter(doc, { variables: { firstName: 'Ada' } })
+```
+
+Per-recipient sending: compile once without variables to get a reusable template, then substitute per recipient with `applyMergeTags(html, values, { escapeValues: true })`.
+
+## Theming and dark mode
+
+Set colours in `document.theme.light` and `document.theme.dark`. Light colours are inlined on every element; dark colours are emitted only inside the dark media query, so clients that do not support dark mode always render light. Explicit per-block colour overrides (`header.color`, `button.backgroundColor`) are not swapped in dark mode. Font stacks are email-safe system stacks (`FONT_STACKS`): `system`, `helvetica`, `verdana`, `trebuchet`, `tahoma`, `georgia`, `palatino`, `times`, `courier`. Web fonts are intentionally not used because most clients ignore them.
+
+## Provider integration
+
+The package never talks to a provider. Pass the payload:
+
+```ts
+// Nodemailer / any SMTP (SMTP2GO, Bird, custom)
+await transporter.sendMail({ from, to, subject, html, text })
+
+// Mailchimp: create a campaign and PUT html to /campaigns/{id}/content  { html }
+// HubSpot: marketing email content or single-send API with the compiled html
+// ActiveCampaign: create a message with html and text fields
+```
+
+Replace provider-specific unsubscribe tags by setting the footer `unsubscribeUrl` to the provider's merge syntax (for example `*|UNSUB|*` for Mailchimp, `%%unsubscribe_link%%` style tokens elsewhere). Unknown `{{tags}}` are preserved untouched.
+
+## sendDevEmail (DEVELOPMENT ONLY)
+
+```ts
+import { sendDevEmail } from 'newsletter-builder-react/node'
+await sendDevEmail({
+  from: 'Acme <dev@localhost>',
+  to: 'ada@example.com',
+  email: compileNewsletter(doc),
+  smtp: { host: 'localhost', port: 1025, startTls: false }, // Mailpit / MailHog / Mailtrap
+})
+```
+
+Uses only `node:net` and `node:tls`. Supports implicit TLS, STARTTLS and AUTH PLAIN. No queue, retries, pooling, DKIM signing or bounce handling.
+
+**WARNING:** Do not use this for production sending. Without reverse DNS (PTR), SPF, DKIM and DMARC DNS TXT records, and server/IP warm-up, your messages will land in spam or be rejected. Use a transactional provider for production traffic.
+
+## Deliverability checklist
+
+- PTR (reverse DNS) record on the sending IP matches the HELO hostname.
+- SPF TXT record authorises the sending servers.
+- DKIM signing is enabled and the public key is published as a TXT record.
+- DMARC TXT record at `_dmarc.yourdomain` (start with `p=none` and monitor).
+- Warm up new IPs and domains gradually.
+- Include a visible unsubscribe link and `List-Unsubscribe` / `List-Unsubscribe-Post` headers for bulk mail.
+- Always send the `text` part alongside `html`.
+- Keep HTML under 102 KB to avoid Gmail clipping.
+
+## Accessibility and security notes
+
+- The linter flags empty image alt text, missing unsubscribe links and Gmail clipping.
+- Rich text is restricted to `b`, `strong`, `i`, `em`, `u`, `a`, `br` and sanitised on input and at compile time. `javascript:` and similar URLs are removed.
+- The renderer iframe has no `allow-scripts`.
+
+## Links
+
+- License: MIT
+- Docs: /docs
+- Playground: /builder

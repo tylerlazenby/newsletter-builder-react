@@ -1,0 +1,61 @@
+{
+  "name": "newsletter-builder-react",
+  "version": "0.1.0",
+  "description": "A free, open-source, provider-agnostic visual email newsletter builder for React with an email-safe HTML compiler.",
+  "license": "MIT",
+  "keywords": [
+    "email",
+    "newsletter",
+    "email-builder",
+    "drag-and-drop",
+    "html-email",
+    "react",
+    "mjml-alternative",
+    "smtp",
+    "mailchimp",
+    "hubspot",
+    "activecampaign"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "llms.txt"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/styles.css dist/styles.css",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc --entryPoints src/index.ts src/node.ts --out docs-api"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typedoc": "^0.28.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
