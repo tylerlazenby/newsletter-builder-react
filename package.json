@@ -1,6 +1,6 @@
 {
   "name": "newsletter-builder-react",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "homepage": "https://newsletter-builder-react.clevoro.com/",
   "description": "A free, open-source, provider-agnostic visual email newsletter builder for React with an email-safe HTML compiler.",
   "license": "MIT",
@@ -57,7 +57,7 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^22.20.5",
+    "@types/node": "^26.6.6",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
