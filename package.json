@@ -1,6 +1,6 @@
 {
   "name": "newsletter-builder-react",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A free, open-source, provider-agnostic visual email newsletter builder for React with an email-safe HTML compiler.",
   "license": "MIT",
   "keywords": [
