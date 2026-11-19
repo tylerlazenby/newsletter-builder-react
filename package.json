@@ -1,6 +1,6 @@
 {
   "name": "newsletter-builder-react",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "homepage": "https://newsletter-builder-react.clevoro.com/",
   "description": "A free, open-source, provider-agnostic visual email newsletter builder for React with an email-safe HTML compiler.",
   "license": "MIT",
@@ -63,7 +63,7 @@
     "@types/react-dom": "^19.0.0",
     "tsup": "^9.0.0",
     "typedoc": "^0.28.0",
-    "typescript": "^7.0.2"
+    "typescript": "^5.7.0"
   },
   "engines": {
     "node": ">=18"
