@@ -50,8 +50,12 @@ export interface SendDevEmailResult {
 }
 
 function bareAddress(value: string): string {
-  const match = value.match(/<([^>]+)>/)
-  return (match ? match[1] : value).trim()
+  const open = value.indexOf('<')
+  if (open !== -1) {
+    const close = value.indexOf('>', open + 1)
+    if (close > open + 1) return value.slice(open + 1, close).trim()
+  }
+  return value.trim()
 }
 
 function assertNoLineBreaks(label: string, value: string): void {
