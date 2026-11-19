@@ -30,6 +30,35 @@ export function decodeEntities(value: string): string {
   })
 }
 
+function readLinkHref(openingTag: string): string | undefined {
+  const lowerTag = openingTag.toLowerCase()
+  let searchFrom = 2
+
+  while (searchFrom < openingTag.length) {
+    const hrefIndex = lowerTag.indexOf('href', searchFrom)
+    if (hrefIndex === -1) return undefined
+
+    searchFrom = hrefIndex + 4
+    const before = lowerTag[hrefIndex - 1]
+    if (before !== undefined && !/\s/.test(before)) continue
+
+    let valueIndex = hrefIndex + 4
+    while (/\s/.test(openingTag[valueIndex] ?? '')) valueIndex++
+    if (openingTag[valueIndex] !== '=') continue
+
+    valueIndex++
+    while (/\s/.test(openingTag[valueIndex] ?? '')) valueIndex++
+    const quote = openingTag[valueIndex]
+    if (quote !== '"' && quote !== "'") continue
+
+    const valueEnd = openingTag.indexOf(quote, valueIndex + 1)
+    if (valueEnd === -1) return undefined
+    return openingTag.slice(valueIndex + 1, valueEnd)
+  }
+
+  return undefined
+}
+
 /**
  * Converts the inline HTML subset used by text blocks into plain text.
  *
@@ -43,14 +72,50 @@ export function decodeEntities(value: string): string {
  * ```
  */
 export function richTextToPlain(html: string): string {
-  const withLinks = html.replace(
-    /<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
-    (_match, href: string, label: string) => {
+  const lowerHtml = html.toLowerCase()
+  let cursor = 0
+  let withLinks = ''
+
+  while (cursor < html.length) {
+    const start = lowerHtml.indexOf('<a', cursor)
+    if (start === -1) {
+      withLinks += html.slice(cursor)
+      break
+    }
+
+    const following = lowerHtml[start + 2]
+    if (following !== undefined && !/\s/.test(following) && following !== '>') {
+      withLinks += html.slice(cursor, start + 2)
+      cursor = start + 2
+      continue
+    }
+
+    const openingEnd = html.indexOf('>', start + 2)
+    if (openingEnd === -1) {
+      withLinks += html.slice(cursor)
+      break
+    }
+
+    const closingStart = lowerHtml.indexOf('</a>', openingEnd + 1)
+    if (closingStart === -1) {
+      withLinks += html.slice(cursor)
+      break
+    }
+
+    const href = readLinkHref(html.slice(start, openingEnd + 1))
+    withLinks += html.slice(cursor, start)
+    if (href === undefined) {
+      withLinks += html.slice(start, openingEnd + 1)
+      withLinks += html.slice(openingEnd + 1, closingStart)
+    } else {
+      const label = html.slice(openingEnd + 1, closingStart)
       const url = decodeEntities(href)
       const text = decodeEntities(label.replace(/<[^>]+>/g, ''))
-      return text.trim() === url ? url : `${text} (${url})`
-    },
-  )
+      withLinks += text.trim() === url ? url : `${text} (${url})`
+    }
+    cursor = closingStart + 4
+  }
+
   return decodeEntities(withLinks.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ''))
 }
 
