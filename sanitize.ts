@@ -44,7 +44,7 @@ export function sanitizeUrl(url: string, options: SanitizeUrlOptions = {}): stri
   return ''
 }
 
-const TAG_PATTERN = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>|<!--[\s\S]*?-->|[^<]+|</g
+const TAG_PATTERN = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>|[^<]+|</g
 
 const TAG_ALIASES: Record<string, string> = { strong: 'b', em: 'i', b: 'b', i: 'i', u: 'u', a: 'a', br: 'br' }
 
@@ -77,10 +77,22 @@ function readHref(attributes: string): string {
  * ```
  */
 export function sanitizeRichText(html: string): string {
-  const source = html
-    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
   const stack: string[] = []
+  const suppressedTags: string[] = []
+  const sourceParts: string[] = []
+  let cursor = 0
+  while (cursor < html.length) {
+    const start = html.indexOf('<!--', cursor)
+    if (start === -1) {
+      sourceParts.push(html.slice(cursor))
+      break
+    }
+    sourceParts.push(html.slice(cursor, start))
+    const end = html.indexOf('-->', start + 4)
+    if (end === -1) break
+    cursor = end + 3
+  }
+  const source = sourceParts.join('')
   let out = ''
 
   const pushBreak = () => {
@@ -92,7 +104,20 @@ export function sanitizeRichText(html: string): string {
     const closing = match[1] === '/'
     const rawName = match[2]?.toLowerCase()
 
+    if (rawName === 'script' || rawName === 'style') {
+      if (!closing) {
+        suppressedTags.push(rawName)
+      } else {
+        const index = suppressedTags.lastIndexOf(rawName)
+        if (index !== -1) suppressedTags.splice(index)
+      }
+      continue
+    }
+
+    if (suppressedTags.length) continue
+
     if (!rawName) {
+      if (token.startsWith('<!--')) continue
       out += token === '<' ? '&lt;' : token.replace(/>/g, '&gt;')
       continue
     }
